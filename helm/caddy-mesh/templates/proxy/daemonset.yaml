@@ -1,0 +1,37 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: caddy-mesh-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: caddy-mesh
+    component: proxy
+spec:
+  selector:
+    matchLabels:
+      app: caddy-mesh
+      component: proxy
+  template:
+    metadata:
+      labels:
+        app: caddy-mesh
+        component: proxy
+    spec:
+      serviceAccountName: caddy-mesh-proxy
+      containers:
+      - name: caddy
+        image: {{ include "caddyMesh.proxyImage" . | quote }}
+        imagePullPolicy: {{ .Values.proxy.image.pullPolicy | default "IfNotPresent" }}
+        volumeMounts:
+        - name: caddy
+          mountPath: "/etc/caddy"
+        ports:
+        - name: http
+          containerPort: 80
+        - name: admin
+          containerPort: 2019
+      volumes:
+      - name: caddy
+        configMap:
+          name: caddy-mesh-proxy-configmap

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: caddy-mesh
+description: A Helm chart for Caddy Mesh
+type: application
+version: 1.0.0
+appVersion: v0.1.0

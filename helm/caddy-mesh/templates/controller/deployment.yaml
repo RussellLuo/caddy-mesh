@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caddy-mesh-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: caddy-mesh
+    component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: caddy-mesh
+      component: controller
+  template:
+    metadata:
+      labels:
+        app: caddy-mesh
+        component: controller
+    spec:
+      serviceAccountName: caddy-mesh-controller
+      containers:
+      - name: controller
+        image: {{ include "caddyMesh.controllerImage" . | quote }}
+        imagePullPolicy: {{ .Values.controller.image.pullPolicy | default "IfNotPresent" }}
+        args:
+        - run
+        - {{ .Release.Namespace }}
+      initContainers:
+      - name: init
+        image: {{ include "caddyMesh.controllerImage" . | quote }}
+        imagePullPolicy: {{ .Values.controller.image.pullPolicy | default "IfNotPresent" }}
+        args:
+        - init
+        - {{ .Release.Namespace }}

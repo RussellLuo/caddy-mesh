@@ -1,0 +1,7 @@
+controller:
+  image:
+    name: caddy-mesh-controller
+
+proxy:
+  image:
+    name: caddy

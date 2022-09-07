@@ -1,0 +1,197 @@
+{
+  "admin": {
+    "listen": "0.0.0.0:2019"
+  },
+  "apps": {
+    "http": {
+      "servers": {
+        "server-80": {
+          "automatic_https": {
+            "disable": true
+          },
+          "listen": [":80"],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "handler": "subroute",
+                          "routes": [
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "upstreams": [
+                                    {
+                                      "dial": "127.0.0.4:80"
+                                    },
+                                    {
+                                      "dial": "127.0.0.5:80"
+                                    }
+                                  ]
+                                }
+                              ],
+                              "match": [
+                                {
+                                  "expression": "false"
+                                }
+                              ]
+                            },
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "upstreams": [
+                                    {
+                                      "dial": "127.0.0.2:80"
+                                    },
+                                    {
+                                      "dial": "127.0.0.3:80"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "host": [
+                            "service.test.caddy.mesh"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "handler": "reverse_proxy",
+                          "upstreams": [
+                            {
+                              "dial": "127.0.0.2:80"
+                            },
+                            {
+                              "dial": "127.0.0.3:80"
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "host": [
+                            "service-1.test.caddy.mesh"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "handle": [
+                        {
+                          "handler": "reverse_proxy",
+                          "upstreams": [
+                            {
+                              "dial": "127.0.0.4:80"
+                            },
+                            {
+                              "dial": "127.0.0.5:80"
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "host": [
+                            "service-2.test.caddy.mesh"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "handle": [
+                        {
+                          "handler": "reverse_proxy",
+                          "upstreams": [
+                            {
+                              "dial": "127.0.0.2:80"
+                            },
+                            {
+                              "dial": "127.0.0.3:80"
+                            },
+                            {
+                              "dial": "127.0.0.4:80"
+                            },
+                            {
+                              "dial": "127.0.0.5:80"
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "host": [
+                            "service.test.caddy.mesh"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "server-8080": {
+          "automatic_https": {
+            "disable": true
+          },
+          "listen": [":8080"],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "handler": "reverse_proxy",
+                          "upstreams": [
+                            {
+                              "dial": "127.0.0.6:8080"
+                            },
+                            {
+                              "dial": "127.0.0.7:8080"
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "host": ["service-3.test.caddy.mesh"]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
