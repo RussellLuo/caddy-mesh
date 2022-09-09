@@ -132,6 +132,11 @@ func (c *Controller) toService(ctx context.Context, svc *corev1.Service) (*Servi
 		return nil, err
 	}
 
+	definitions, err := NewDefinitions(svc.Annotations)
+	if err != nil {
+		c.logger.Error(err, "bad service annotations")
+	}
+
 	port := svc.Spec.Ports[0] // TODO: Add support for multiple ports per Service
 	return &Service{
 		Key: Key{
@@ -141,7 +146,7 @@ func (c *Controller) toService(ctx context.Context, svc *corev1.Service) (*Servi
 		Port:        Port(int(port.Port)),
 		PodPort:     int(port.TargetPort.IntVal),
 		PodIPs:      ips,
-		Annotations: svc.Annotations,
+		Definitions: definitions,
 	}, nil
 }
 

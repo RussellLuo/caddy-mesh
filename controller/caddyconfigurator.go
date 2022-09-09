@@ -6,20 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/RussellLuo/caddy-mesh/dnspatcher"
+	"github.com/RussellLuo/structool"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-)
-
-const (
-	TrafficSplitExpr = "mesh.caddyserver.com/trafficsplit-expression"
-	TrafficSplitNew  = "mesh.caddyserver.com/trafficsplit-new-service"
-	TrafficSplitOld  = "mesh.caddyserver.com/trafficsplit-old-service"
 )
 
 type ServiceGetter func(ctx context.Context, name, namespace string) (*Service, error)
@@ -217,37 +210,30 @@ func (s *CaddyServer) IsEmpty() bool {
 }
 
 func (s *CaddyServer) toTrafficSplit(svc *Service) *TrafficSplit {
-	var expression, oldName, newName string
-	for key, value := range svc.Annotations {
-		switch key {
-		case TrafficSplitExpr:
-			expression = value
-		case TrafficSplitNew:
-			newName = value
-		case TrafficSplitOld:
-			oldName = value
-		}
-	}
-
-	if expression == "" || newName == "" || oldName == "" {
+	d := svc.Definitions
+	if d == nil {
 		return nil
 	}
 
-	newService, err := s.serviceGetter(context.Background(), newName, svc.Namespace)
-	if err != nil {
-		s.logger.Error(err, "could not get Kubernetes Service", "name", newName, "namespace", svc.Namespace)
+	if d.TrafficSplitExpression == "" || d.TrafficSplitNewService == "" || d.TrafficSplitOldService == "" {
 		return nil
 	}
 
-	oldService, err := s.serviceGetter(context.Background(), oldName, svc.Namespace)
+	newService, err := s.serviceGetter(context.Background(), d.TrafficSplitNewService, svc.Namespace)
 	if err != nil {
-		s.logger.Error(err, "could not get Kubernetes Service", "name", oldName, "namespace", svc.Namespace)
+		s.logger.Error(err, "could not get Kubernetes Service", "name", d.TrafficSplitNewService, "namespace", svc.Namespace)
+		return nil
+	}
+
+	oldService, err := s.serviceGetter(context.Background(), d.TrafficSplitOldService, svc.Namespace)
+	if err != nil {
+		s.logger.Error(err, "could not get Kubernetes Service", "name", d.TrafficSplitOldService, "namespace", svc.Namespace)
 		return nil
 	}
 
 	return &TrafficSplit{
 		Service:    svc,
-		Expression: expression,
+		Expression: d.TrafficSplitExpression,
 		NewService: newService,
 		OldService: oldService,
 	}
@@ -255,6 +241,9 @@ func (s *CaddyServer) toTrafficSplit(svc *Service) *TrafficSplit {
 
 // String implements fmt.Stringer. This is mainly used for testing purpose.
 func (s *CaddyServer) String() string {
+	if s == nil {
+		return "<nil>"
+	}
 	return fmt.Sprintf("{Port:%d TrafficSplits:%v Services:%v}",
 		s.port,
 		s.trafficSplits,
@@ -285,11 +274,14 @@ type Service struct {
 	Port        Port
 	PodPort     int
 	PodIPs      []string
-	Annotations map[string]string
+	Definitions *Definitions
 }
 
 // String implements fmt.Stringer. This is mainly used for testing purpose.
 func (s *Service) String() string {
+	if s == nil {
+		return "<nil>"
+	}
 	return fmt.Sprintf("%+v", *s)
 }
 
@@ -307,168 +299,37 @@ type TrafficSplit struct {
 
 // String implements fmt.Stringer. This is mainly used for testing purpose.
 func (t *TrafficSplit) String() string {
+	if t == nil {
+		return "<nil>"
+	}
 	return fmt.Sprintf("%+v", *t)
 }
 
-type Route map[string]interface{}
+type Definitions struct {
+	TimeoutDialTimeout  time.Duration `json:"mesh.caddyserver.com/timeout-dial-timeout,omitempty"`
+	TimeoutReadTimeout  time.Duration `json:"mesh.caddyserver.com/timeout-read-timeout,omitempty"`
+	TimeoutWriteTimeout time.Duration `json:"mesh.caddyserver.com/timeout-write-timeout,omitempty"`
 
-type Builder struct{}
-
-func (b Builder) Build(servers map[Port]*CaddyServer) map[string]interface{} {
-	cfgServers := make(map[string]interface{})
-
-	nextServer := NextMapValueInOrder[map[Port]*CaddyServer](servers)
-	for {
-		s, ok := nextServer()
-		if !ok {
-			break
-		}
-
-		nextTs := NextMapValueInOrder[map[Key]*TrafficSplit](s.trafficSplits)
-		var tsRoutes []Route
-		for {
-			ts, ok := nextTs()
-			if !ok {
-				break
-			}
-			tsRoutes = append(tsRoutes, b.buildTrafficSplit(ts))
-		}
-
-		nextSvc := NextMapValueInOrder[map[Key]*Service](s.services)
-		var svcRoutes []Route
-		for {
-			svc, ok := nextSvc()
-			if !ok {
-				break
-			}
-			svcRoutes = append(svcRoutes, b.buildService(svc))
-		}
-
-		var routes []Route
-		if len(tsRoutes) > 0 {
-			routes = append(routes, b.buildSubRoute(tsRoutes, nil))
-		}
-		if len(svcRoutes) > 0 {
-			routes = append(routes, b.buildSubRoute(svcRoutes, nil))
-		}
-
-		cfgServers[fmt.Sprintf("server-%d", s.port)] = map[string]interface{}{
-			"automatic_https": map[string]interface{}{
-				"disable": true,
-			},
-			"listen": []string{fmt.Sprintf(":%d", s.port)},
-			"routes": routes,
-		}
-	}
-
-	return map[string]interface{}{
-		"admin": map[string]interface{}{
-			"listen": "0.0.0.0:2019",
-		},
-		"apps": map[string]interface{}{
-			"http": map[string]interface{}{
-				"servers": cfgServers,
-			},
-		},
-	}
+	TrafficSplitExpression string `json:"mesh.caddyserver.com/traffic-split-expression,omitempty"`
+	TrafficSplitNewService string `json:"mesh.caddyserver.com/traffic-split-new-service,omitempty"`
+	TrafficSplitOldService string `json:"mesh.caddyserver.com/traffic-split-old-service,omitempty"`
 }
 
-func (b Builder) buildTrafficSplit(ts *TrafficSplit) Route {
-	matchExpr := map[string]interface{}{
-		"expression": ts.Expression,
-	}
-	routes := []Route{
-		b.buildReverseProxy(ts.NewService, matchExpr),
-		b.buildReverseProxy(ts.OldService, nil),
+func NewDefinitions(annotations map[string]string) (*Definitions, error) {
+	codec := structool.New().TagName("json").DecodeHook(structool.DecodeStringToDuration)
+
+	d := new(Definitions)
+	if err := codec.Decode(annotations, d); err != nil {
+		return nil, err
 	}
 
-	matchHost := map[string]interface{}{
-		"host": []string{fullHost(ts.Name, ts.Namespace)},
-	}
-	return b.buildSubRoute(routes, matchHost)
+	return d, nil
 }
 
-func (b Builder) buildService(svc *Service) Route {
-	match := map[string]interface{}{
-		"host": []string{fullHost(svc.Name, svc.Namespace)},
+// String implements fmt.Stringer. This is mainly used for testing purpose.
+func (d *Definitions) String() string {
+	if d == nil {
+		return "<nil>"
 	}
-	return b.buildReverseProxy(svc, match)
-}
-
-func (b Builder) buildSubRoute(routes []Route, match map[string]interface{}) Route {
-	r := Route{
-		"handle": []map[string]interface{}{
-			{
-				"handler": "subroute",
-				"routes":  routes,
-			},
-		},
-	}
-	if len(match) > 0 {
-		r["match"] = []map[string]interface{}{match}
-	}
-	return r
-}
-
-func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) Route {
-	var upstreams []map[string]interface{}
-	for _, ip := range svc.PodIPs {
-		upstreams = append(upstreams, map[string]interface{}{
-			"dial": fmt.Sprintf("%s:%d", ip, svc.PodPort),
-		})
-	}
-
-	r := Route{
-		"handle": []map[string]interface{}{
-			{
-				"handler":   "reverse_proxy",
-				"upstreams": upstreams,
-			},
-		},
-	}
-	if len(match) > 0 {
-		r["match"] = []map[string]interface{}{match}
-	}
-	return r
-}
-
-func fullHost(name, namespace string) string {
-	return name + "." + namespace + "." + dnspatcher.CaddyMeshDomain
-}
-
-func makeURL(ip string) string {
-	return fmt.Sprintf("http://%s:2019/load", ip)
-}
-
-type SortStringer interface {
-	comparable
-	SortString() string
-}
-
-// NextMapValueInOrder iterates the given map in ascending order of its key, and
-// returns the corresponding value. It will return ok=false if there's no value left.
-func NextMapValueInOrder[T map[K]V, K SortStringer, V any](m T) func() (value V, ok bool) {
-	var keys []K
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sortSlice[K](keys)
-	var i int
-
-	return func() (V, bool) {
-		if i >= len(keys) {
-			var zero V
-			return zero, false
-		}
-
-		value, ok := m[keys[i]]
-		i++
-		return value, ok
-	}
-}
-
-func sortSlice[T SortStringer](s []T) {
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].SortString() < s[j].SortString()
-	})
+	return fmt.Sprintf("%+v", *d)
 }
