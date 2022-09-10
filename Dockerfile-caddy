@@ -1,0 +1,10 @@
+ARG  VERSION=2.6.0-beta.3
+FROM caddy:${VERSION}-builder-alpine AS builder
+
+RUN xcaddy build \
+    --with github.com/RussellLuo/caddy-ext/ratelimit@v0.1.1-0.20220910113634-5680eab76769
+
+
+FROM caddy:${VERSION}-alpine
+
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
