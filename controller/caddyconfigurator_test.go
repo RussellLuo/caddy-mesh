@@ -384,6 +384,18 @@ func TestNewDefinitions(t *testing.T) {
 			wantErr: "1 error(s) decoding:\n\n* error decoding 'mesh.caddyserver.com/timeout-dial-timeout': time: missing unit in duration \"5\"",
 		},
 		{
+			name: "retry",
+			in: map[string]string{
+				"mesh.caddyserver.com/retry-count":    "2",
+				"mesh.caddyserver.com/retry-duration": "5s",
+			},
+			want: &Definitions{
+				RetryCount:    2,
+				RetryDuration: 5 * time.Second,
+				RetryOn:       "true",
+			},
+		},
+		{
 			name: "traffic split",
 			in: map[string]string{
 				"mesh.caddyserver.com/traffic-split-expression":  "false",

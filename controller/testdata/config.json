@@ -27,6 +27,17 @@
                               "handle": [
                                 {
                                   "handler": "reverse_proxy",
+                                  "load_balancing": {
+                                    "retry_match": [
+                                      {
+                                        "expression": "path('/foo/*')"
+                                      }
+                                    ],
+                                    "selection_policy": {
+                                      "policy": "round_robin"
+                                    },
+                                    "try_duration": 5000000000
+                                  },
                                   "upstreams": [
                                     {
                                       "dial": "127.0.0.4:80"
@@ -47,6 +58,17 @@
                               "handle": [
                                 {
                                   "handler": "reverse_proxy",
+                                  "load_balancing": {
+                                    "retries": 2,
+                                    "retry_match": [
+                                      {
+                                        "expression": "true"
+                                      }
+                                    ],
+                                    "selection_policy": {
+                                      "policy": "round_robin"
+                                    }
+                                  },
                                   "upstreams": [
                                     {
                                       "dial": "127.0.0.2:80"
@@ -82,6 +104,17 @@
                       "handle": [
                         {
                           "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "retries": 2,
+                            "retry_match": [
+                              {
+                                "expression": "true"
+                              }
+                            ],
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
                           "upstreams": [
                             {
                               "dial": "127.0.0.2:80"
@@ -104,6 +137,17 @@
                       "handle": [
                         {
                           "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "retry_match": [
+                              {
+                                "expression": "path('/foo/*')"
+                              }
+                            ],
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            },
+                            "try_duration": 5000000000
+                          },
                           "upstreams": [
                             {
                               "dial": "127.0.0.4:80"
@@ -126,6 +170,11 @@
                       "handle": [
                         {
                           "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
                           "upstreams": [
                             {
                               "dial": "127.0.0.2:80"
@@ -173,6 +222,11 @@
                       "handle": [
                         {
                           "handler": "reverse_proxy",
+                          "load_balancing": {
+                            "selection_policy": {
+                              "policy": "round_robin"
+                            }
+                          },
                           "transport": {
                             "dial_timeout": 10000000000,
                             "protocol": "http",

@@ -115,6 +115,27 @@ func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) R
 		})
 	}
 
+	loadBalancing := map[string]interface{}{
+		"selection_policy": map[string]interface{}{
+			"policy": "round_robin",
+		},
+	}
+	if d := svc.Definitions; d != nil {
+		if d.RetryCount > 0 {
+			loadBalancing["retries"] = d.RetryCount
+		}
+		if d.RetryDuration > 0 {
+			loadBalancing["try_duration"] = d.RetryDuration
+		}
+		if d.RetryOn != "" {
+			loadBalancing["retry_match"] = []map[string]interface{}{
+				{
+					"expression": d.RetryOn,
+				},
+			}
+		}
+	}
+
 	var transport map[string]interface{}
 	if d := svc.Definitions; d != nil {
 		if d.TimeoutDialTimeout > 0 || d.TimeoutReadTimeout > 0 || d.TimeoutWriteTimeout > 0 {
@@ -134,8 +155,9 @@ func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) R
 	}
 
 	reverseProxy := map[string]interface{}{
-		"handler":   "reverse_proxy",
-		"upstreams": upstreams,
+		"handler":        "reverse_proxy",
+		"load_balancing": loadBalancing,
+		"upstreams":      upstreams,
 	}
 	if len(transport) > 0 {
 		reverseProxy["transport"] = transport

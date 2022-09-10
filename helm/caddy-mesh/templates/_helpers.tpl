@@ -11,5 +11,5 @@ Define the templated controller image with tag.
 Define the templated proxy image with tag.
 */}}
 {{- define "caddyMesh.proxyImage" -}}
-    {{- printf "%s:%s" .Values.proxy.image.name ( .Values.proxy.image.tag | default "2.5.2" ) -}}
+    {{- printf "%s:%s" .Values.proxy.image.name ( .Values.proxy.image.tag | default "2.6.0-beta.3" ) -}}
 {{- end -}}

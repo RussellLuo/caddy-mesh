@@ -29,12 +29,20 @@ func TestBuilder_Build(t *testing.T) {
 			Port:    Port(80),
 			PodPort: 80,
 			PodIPs:  []string{"127.0.0.2", "127.0.0.3"},
+			Definitions: &Definitions{
+				RetryCount: 2,
+				RetryOn:    "true",
+			},
 		},
 		{
 			Key:     Key{Name: "service-2", Namespace: "test"},
 			Port:    Port(80),
 			PodPort: 80,
 			PodIPs:  []string{"127.0.0.4", "127.0.0.5"},
+			Definitions: &Definitions{
+				RetryDuration: 5 * time.Second,
+				RetryOn:       "path('/foo/*')",
+			},
 		},
 		{
 			Key:     Key{Name: "service-3", Namespace: "test"},

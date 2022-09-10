@@ -310,17 +310,38 @@ type Definitions struct {
 	TimeoutReadTimeout  time.Duration `json:"mesh.caddyserver.com/timeout-read-timeout,omitempty"`
 	TimeoutWriteTimeout time.Duration `json:"mesh.caddyserver.com/timeout-write-timeout,omitempty"`
 
+	RetryCount    int           `json:"mesh.caddyserver.com/retry-count,omitempty"`
+	RetryDuration time.Duration `json:"mesh.caddyserver.com/retry-duration,omitempty"`
+	// RetryOn specifies the condition required to allow the retries.
+	// If either RetryCount or RetryDuration is specified, RetryOn will default
+	// to "true", which means retries are always allowed.
+	//
+	// For the syntax of the value, see https://caddyserver.com/docs/caddyfile/matchers#expression.
+	RetryOn string `json:"mesh.caddyserver.com/retry-on,omitempty"`
+
+	// TrafficSplitExpression specifies the condition required to route requests
+	// to the new service. All unmatched requests will be routed to the root
+	// Kubernetes Service, on which the annotations are defined.
+	//
+	// For the syntax of the value, see https://caddyserver.com/docs/caddyfile/matchers#expression.
 	TrafficSplitExpression string `json:"mesh.caddyserver.com/traffic-split-expression,omitempty"`
 	TrafficSplitNewService string `json:"mesh.caddyserver.com/traffic-split-new-service,omitempty"`
 	TrafficSplitOldService string `json:"mesh.caddyserver.com/traffic-split-old-service,omitempty"`
 }
 
 func NewDefinitions(annotations map[string]string) (*Definitions, error) {
-	codec := structool.New().TagName("json").DecodeHook(structool.DecodeStringToDuration)
+	codec := structool.New().TagName("json").DecodeHook(
+		structool.DecodeStringToDuration,
+		structool.DecodeStringToNumber,
+	)
 
 	d := new(Definitions)
 	if err := codec.Decode(annotations, d); err != nil {
 		return nil, err
+	}
+
+	if d.RetryOn == "" && (d.RetryCount > 0 || d.RetryDuration > 0) {
+		d.RetryOn = "true"
 	}
 
 	return d, nil
