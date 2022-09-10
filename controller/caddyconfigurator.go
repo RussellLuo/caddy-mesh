@@ -319,6 +319,10 @@ type Definitions struct {
 	// For the syntax of the value, see https://caddyserver.com/docs/caddyfile/matchers#expression.
 	RetryOn string `json:"mesh.caddyserver.com/retry-on,omitempty"`
 
+	RateLimitKey      string `json:"mesh.caddyserver.com/rate-limit-key,omitempty"`
+	RateLimitRate     string `json:"mesh.caddyserver.com/rate-limit-rate,omitempty"`
+	RateLimitZoneSize int    `json:"mesh.caddyserver.com/rate-limit-zone-size,omitempty"`
+
 	// TrafficSplitExpression specifies the condition required to route requests
 	// to the new service. All unmatched requests will be routed to the root
 	// Kubernetes Service, on which the annotations are defined.

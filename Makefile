@@ -7,6 +7,10 @@ build:
 build-image:
 	@docker build -t caddy-mesh-controller:$(tag) .
 
+.PHONY: build-caddy-image
+build-caddy-image:
+	@docker build -f Dockerfile-caddy -t caddy:$(tag) .
+
 .PHONY: helm-install
 helm-install:
 	@helm install caddy-mesh ./helm/caddy-mesh -n caddy-system --create-namespace

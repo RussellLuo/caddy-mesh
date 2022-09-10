@@ -30,8 +30,9 @@ func TestBuilder_Build(t *testing.T) {
 			PodPort: 80,
 			PodIPs:  []string{"127.0.0.2", "127.0.0.3"},
 			Definitions: &Definitions{
-				RetryCount: 2,
-				RetryOn:    "true",
+				RetryCount:    2,
+				RetryDuration: 5 * time.Second,
+				RetryOn:       "path('/foo/*')",
 			},
 		},
 		{
@@ -40,8 +41,8 @@ func TestBuilder_Build(t *testing.T) {
 			PodPort: 80,
 			PodIPs:  []string{"127.0.0.4", "127.0.0.5"},
 			Definitions: &Definitions{
-				RetryDuration: 5 * time.Second,
-				RetryOn:       "path('/foo/*')",
+				RateLimitKey:  "{query.id}",
+				RateLimitRate: "2r/s",
 			},
 		},
 		{

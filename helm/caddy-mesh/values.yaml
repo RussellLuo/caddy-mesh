@@ -5,3 +5,4 @@ controller:
 proxy:
   image:
     name: caddy
+    tag: 2.6.0-beta.3-custom

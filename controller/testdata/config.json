@@ -26,17 +26,16 @@
                             {
                               "handle": [
                                 {
+                                  "handler": "rate_limit",
+                                  "key": "{query.id}",
+                                  "rate": "2r/s"
+                                },
+                                {
                                   "handler": "reverse_proxy",
                                   "load_balancing": {
-                                    "retry_match": [
-                                      {
-                                        "expression": "path('/foo/*')"
-                                      }
-                                    ],
                                     "selection_policy": {
                                       "policy": "round_robin"
-                                    },
-                                    "try_duration": 5000000000
+                                    }
                                   },
                                   "upstreams": [
                                     {
@@ -62,12 +61,13 @@
                                     "retries": 2,
                                     "retry_match": [
                                       {
-                                        "expression": "true"
+                                        "expression": "path('/foo/*')"
                                       }
                                     ],
                                     "selection_policy": {
                                       "policy": "round_robin"
-                                    }
+                                    },
+                                    "try_duration": 5000000000
                                   },
                                   "upstreams": [
                                     {
@@ -108,12 +108,13 @@
                             "retries": 2,
                             "retry_match": [
                               {
-                                "expression": "true"
+                                "expression": "path('/foo/*')"
                               }
                             ],
                             "selection_policy": {
                               "policy": "round_robin"
-                            }
+                            },
+                            "try_duration": 5000000000
                           },
                           "upstreams": [
                             {
@@ -136,17 +137,16 @@
                     {
                       "handle": [
                         {
+                          "handler": "rate_limit",
+                          "key": "{query.id}",
+                          "rate": "2r/s"
+                        },
+                        {
                           "handler": "reverse_proxy",
                           "load_balancing": {
-                            "retry_match": [
-                              {
-                                "expression": "path('/foo/*')"
-                              }
-                            ],
                             "selection_policy": {
                               "policy": "round_robin"
-                            },
-                            "try_duration": 5000000000
+                            }
                           },
                           "upstreams": [
                             {

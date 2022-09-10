@@ -8,6 +8,8 @@ import (
 )
 
 type Route map[string]interface{}
+type Match map[string]interface{}
+type Handle map[string]interface{}
 
 type Builder struct{}
 
@@ -43,10 +45,10 @@ func (b Builder) Build(servers map[Port]*CaddyServer) map[string]interface{} {
 
 		var routes []Route
 		if len(tsRoutes) > 0 {
-			routes = append(routes, b.buildSubRoute(tsRoutes, nil))
+			routes = append(routes, b.buildSubRoute(nil, tsRoutes...))
 		}
 		if len(svcRoutes) > 0 {
-			routes = append(routes, b.buildSubRoute(svcRoutes, nil))
+			routes = append(routes, b.buildSubRoute(nil, svcRoutes...))
 		}
 
 		cfgServers[fmt.Sprintf("server-%d", s.port)] = map[string]interface{}{
@@ -71,30 +73,30 @@ func (b Builder) Build(servers map[Port]*CaddyServer) map[string]interface{} {
 }
 
 func (b Builder) buildTrafficSplit(ts *TrafficSplit) Route {
-	matchExpr := map[string]interface{}{
+	matchExpr := Match{
 		"expression": ts.Expression,
 	}
 	routes := []Route{
-		b.buildReverseProxy(ts.NewService, matchExpr),
-		b.buildReverseProxy(ts.OldService, nil),
+		b.buildServiceProxy(matchExpr, ts.NewService),
+		b.buildServiceProxy(nil, ts.OldService),
 	}
 
-	matchHost := map[string]interface{}{
+	matchHost := Match{
 		"host": []string{fullHost(ts.Name, ts.Namespace)},
 	}
-	return b.buildSubRoute(routes, matchHost)
+	return b.buildSubRoute(matchHost, routes...)
 }
 
 func (b Builder) buildService(svc *Service) Route {
-	match := map[string]interface{}{
+	match := Match{
 		"host": []string{fullHost(svc.Name, svc.Namespace)},
 	}
-	return b.buildReverseProxy(svc, match)
+	return b.buildServiceProxy(match, svc)
 }
 
-func (b Builder) buildSubRoute(routes []Route, match map[string]interface{}) Route {
+func (b Builder) buildSubRoute(match Match, routes ...Route) Route {
 	r := Route{
-		"handle": []map[string]interface{}{
+		"handle": []Handle{
 			{
 				"handler": "subroute",
 				"routes":  routes,
@@ -102,12 +104,48 @@ func (b Builder) buildSubRoute(routes []Route, match map[string]interface{}) Rou
 		},
 	}
 	if len(match) > 0 {
-		r["match"] = []map[string]interface{}{match}
+		r["match"] = []Match{match}
 	}
 	return r
 }
 
-func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) Route {
+func (b Builder) buildServiceProxy(match Match, svc *Service) Route {
+	reverseProxy := b.buildReverseProxy(svc)
+	handle := []Handle{reverseProxy}
+
+	rateLimit := b.buildRateLimit(svc.Definitions)
+	if rateLimit != nil {
+		handle = []Handle{
+			rateLimit,
+			reverseProxy,
+		}
+	}
+
+	r := Route{"handle": handle}
+	if len(match) > 0 {
+		r["match"] = []Match{match}
+	}
+	return r
+}
+
+func (b Builder) buildRateLimit(d *Definitions) Handle {
+	if d == nil || d.RateLimitKey == "" || d.RateLimitRate == "" {
+		return nil
+	}
+
+	rateLimit := Handle{
+		"handler": "rate_limit",
+		"key":     d.RateLimitKey,
+		"rate":    d.RateLimitRate,
+	}
+	if d.RateLimitZoneSize > 0 {
+		rateLimit["zone_size"] = d.RateLimitZoneSize
+	}
+
+	return rateLimit
+}
+
+func (b Builder) buildReverseProxy(svc *Service) Handle {
 	var upstreams []map[string]interface{}
 	for _, ip := range svc.PodIPs {
 		upstreams = append(upstreams, map[string]interface{}{
@@ -154,7 +192,7 @@ func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) R
 		}
 	}
 
-	reverseProxy := map[string]interface{}{
+	reverseProxy := Handle{
 		"handler":        "reverse_proxy",
 		"load_balancing": loadBalancing,
 		"upstreams":      upstreams,
@@ -163,14 +201,7 @@ func (b Builder) buildReverseProxy(svc *Service, match map[string]interface{}) R
 		reverseProxy["transport"] = transport
 	}
 
-	r := Route{
-		"handle": []map[string]interface{}{reverseProxy},
-	}
-	if len(match) > 0 {
-		r["match"] = []map[string]interface{}{match}
-	}
-
-	return r
+	return reverseProxy
 }
 
 func fullHost(name, namespace string) string {
